@@ -1,0 +1,24 @@
+# Log-based DISTRIBUTION metric: seconds per pipeline step, labelled by step name.
+# Source: the `SHOPCO_STEP {...}` JSON line the monitor prints to driver stdout.
+# Dataproc Serverless stores driver stdout as jsonPayload.message (verified 2026-10-28), not textPayload.
+name: shopco_step_seconds
+description: "Elapsed seconds per ShopCo pipeline step (from SHOPCO_STEP stdout lines of Dataproc Serverless batches)"
+filter: 'resource.type="cloud_dataproc_batch" AND jsonPayload.message:"SHOPCO_STEP {"'
+valueExtractor: 'REGEXP_EXTRACT(jsonPayload.message, "\"elapsed_s\": ([0-9.]+)")'
+labelExtractors:
+  step: 'REGEXP_EXTRACT(jsonPayload.message, "\"step\": \"([A-Za-z0-9_-]+)\"")'
+  status: 'REGEXP_EXTRACT(jsonPayload.message, "\"status\": \"([a-z]+)\"")'
+metricDescriptor:
+  metricKind: DELTA
+  valueType: DISTRIBUTION
+  unit: s
+  labels:
+    - key: step
+      valueType: STRING
+    - key: status
+      valueType: STRING
+bucketOptions:
+  exponentialBuckets:
+    numFiniteBuckets: 40
+    growthFactor: 1.4
+    scale: 0.5

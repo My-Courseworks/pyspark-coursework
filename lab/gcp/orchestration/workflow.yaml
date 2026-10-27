@@ -1,0 +1,95 @@
+# Cloud Workflow: submit one ShopCo batch to Dataproc Serverless, poll until it ends, fail if it failed.
+# Input (JSON): {"scale": "smoke|local|cloud", "stage": "all|generate|pipeline"}
+# The Workflows Dataproc connector has no `batches` resource, so this calls the Dataproc REST API
+# directly with the workflow's service-account OAuth token (gcp/adr/0007).
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - region: ${default(map.get(args, "region"), "us-central1")}
+          - scale: ${default(map.get(args, "scale"), "smoke")}
+          - stage: ${default(map.get(args, "stage"), "all")}
+          - bucket: ${"gs://" + project + "-data"}
+          - sa: ${"shopco-batch@" + project + ".iam.gserviceaccount.com"}
+          - stamp: ${text.to_lower(text.replace_all(text.replace_all(text.substring(time.format(sys.now()), 0, 19), ":", ""), "-", ""))}
+          - batch_id: ${"shopco-" + scale + "-" + stage + "-" + stamp}
+          - base: ${"https://dataproc.googleapis.com/v1/projects/" + project + "/locations/" + region + "/batches"}
+          - shuffle_partitions: "64"
+          - max_executors: "4"
+    - size_for_scale:
+        switch:
+          - condition: ${scale == "cloud"}
+            assign:
+              - shuffle_partitions: "1024"
+              - max_executors: "32"
+          - condition: ${scale == "local"}
+            assign:
+              - shuffle_partitions: "256"
+              - max_executors: "8"
+    - submit:
+        call: http.post
+        args:
+          url: ${base + "?batchId=" + batch_id}
+          auth:
+            type: OAuth2
+          body:
+            labels:
+              scale: ${scale}
+              stage: ${stage}
+              trigger: workflow
+            pysparkBatch:
+              mainPythonFileUri: ${bucket + "/code/main.py"}
+              pythonFileUris:
+                - ${bucket + "/code/shopco.zip"}
+              args:
+                - ${stage}
+                - "--mode"
+                - "cloud"
+                - "--scale"
+                - ${scale}
+                - "--data-root"
+                - ${bucket + "/data/" + scale}
+                - "--runs-root"
+                - ${bucket + "/runs"}
+                - "--run-id"
+                - ${batch_id}
+                - "--sink"
+                - "bigquery"
+                - "--bq-dataset"
+                - "shopco"
+            runtimeConfig:
+              version: "2.2"
+              properties:
+                spark.executor.cores: "4"
+                spark.sql.shuffle.partitions: ${shuffle_partitions}
+                spark.dynamicAllocation.maxExecutors: ${max_executors}
+            environmentConfig:
+              executionConfig:
+                serviceAccount: ${sa}
+                subnetworkUri: default
+        result: submit_op
+    - poll:
+        call: http.get
+        args:
+          url: ${base + "/" + batch_id}
+          auth:
+            type: OAuth2
+        result: batch
+    - check:
+        switch:
+          - condition: ${batch.body.state == "SUCCEEDED"}
+            next: done
+          - condition: ${batch.body.state == "FAILED" or batch.body.state == "CANCELLED"}
+            raise: '${"batch " + batch_id + " ended " + batch.body.state + " - " + default(map.get(batch.body, "stateMessage"), "")}'
+    - wait:
+        call: sys.sleep
+        args:
+          seconds: 30
+        next: poll
+    - done:
+        return:
+          batch_id: ${batch_id}
+          state: ${batch.body.state}
+          report: ${bucket + "/runs/" + batch_id + "/report.md"}

@@ -1,0 +1,28 @@
+[project]
+name = "shopco"
+version = "0.1.0"
+description = "ShopCo PySpark lab: synthetic clickstream at scale, churn feature pipeline, run monitoring. Runs locally and on Dataproc Serverless."
+requires-python = ">=3.11"
+dependencies = [
+    # Pinned to the Spark line shipped by Dataproc Serverless runtime 2.2 (Spark 3.5). See local/adr/0003.
+    "pyspark==3.5.3",
+    "pandas>=2.0",
+    "pyarrow>=14",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

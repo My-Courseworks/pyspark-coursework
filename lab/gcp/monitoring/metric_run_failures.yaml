@@ -1,0 +1,8 @@
+# Log-based COUNTER metric: ShopCo runs whose final SHOPCO_RUN line carries status "failed".
+# Driver stdout lands in jsonPayload.message on Dataproc Serverless (verified 2026-10-28).
+name: shopco_run_failures
+description: "ShopCo pipeline runs that ended with status failed"
+filter: 'resource.type="cloud_dataproc_batch" AND jsonPayload.message:"SHOPCO_RUN {" AND jsonPayload.message:"\"status\": \"failed\""'
+metricDescriptor:
+  metricKind: DELTA
+  valueType: INT64

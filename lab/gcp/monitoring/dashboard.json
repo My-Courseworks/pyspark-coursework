@@ -1,0 +1,53 @@
+{
+  "displayName": "ShopCo PySpark pipeline",
+  "mosaicLayout": {
+    "columns": 12,
+    "tiles": [
+      {
+        "width": 12, "height": 4,
+        "widget": {
+          "title": "Step duration (p50, seconds) by step",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"logging.googleapis.com/user/shopco_step_seconds\" resource.type=\"cloud_dataproc_batch\"",
+                  "aggregation": {"alignmentPeriod": "3600s", "perSeriesAligner": "ALIGN_PERCENTILE_50", "crossSeriesReducer": "REDUCE_MEAN", "groupByFields": ["metric.label.step"]}
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }],
+            "yAxis": {"label": "seconds", "scale": "LINEAR"}
+          }
+        }
+      },
+      {
+        "width": 6, "height": 4, "yPos": 4,
+        "widget": {
+          "title": "Failed runs",
+          "xyChart": {
+            "dataSets": [{
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"logging.googleapis.com/user/shopco_run_failures\" resource.type=\"cloud_dataproc_batch\"",
+                  "aggregation": {"alignmentPeriod": "3600s", "perSeriesAligner": "ALIGN_SUM", "crossSeriesReducer": "REDUCE_SUM"}
+                }
+              },
+              "plotType": "STACKED_BAR"
+            }]
+          }
+        }
+      },
+      {
+        "width": 6, "height": 4, "yPos": 4, "xPos": 6,
+        "widget": {
+          "title": "Batches by state (Dataproc log entries)",
+          "logsPanel": {
+            "filter": "resource.type=\"cloud_dataproc_batch\" AND jsonPayload.message:\"SHOPCO_RUN {\"",
+            "resourceNames": []
+          }
+        }
+      }
+    ]
+  }
+}

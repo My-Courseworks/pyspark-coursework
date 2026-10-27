@@ -1,0 +1,19 @@
+# data and run artefacts are regenerated, never committed
+data/
+runs/
+*.zip
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# spark local leftovers
+metastore_db/
+spark-warehouse/
+derby.log
+
+# gcp local state
+gcp/.state/
